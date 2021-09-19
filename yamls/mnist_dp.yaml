@@ -1,0 +1,34 @@
+apiVersion: "kubeflow.org/v1"
+kind: "PyTorchJob"
+metadata:
+  name: "mnist-dp"
+  namespace: "default"
+spec:
+  pytorchReplicaSpecs:
+    Master:
+      replicas: 1
+      restartPolicy: OnFailure
+      template:
+        metadata:
+          annotations:
+            sidecar.istio.io/inject: "false" # must set false
+        spec:
+          containers:
+            - name: pytorch
+              image: shuaix/pytorch-dist-mnist:1.0
+              imagePullPolicy: IfNotPresent
+              command: ["python", "mnist_dp.py", "--epochs=1", "--batch-size=256"]
+              resources:
+                limits:
+                  nvidia.com/gpu: 4
+          hostIPC: true
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: kubernetes.io/hostname
+                        operator: In
+                        values:
+                          # - gpu-10-252-192-47
+                          - gpu-10-252-192-48

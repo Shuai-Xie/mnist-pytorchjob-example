@@ -1,0 +1,93 @@
+apiVersion: "kubeflow.org/v1"
+kind: "PyTorchJob"
+metadata:
+  name: "mnist-ddp"
+  namespace: "default"
+spec:
+  pytorchReplicaSpecs:
+    Master:
+      replicas: 1
+      restartPolicy: Never
+      template:
+        metadata:
+          annotations:
+            sidecar.istio.io/inject: "false" # must set false
+        spec:
+          volumes:
+            - name: ddp-pvc
+              persistentVolumeClaim:
+                claimName: ddp-pvc
+          containers:
+            - name: pytorch
+              image: shuaix/pytorch-dist-mnist:1.0
+              imagePullPolicy: IfNotPresent
+              command:
+                [
+                  "sh",
+                  "-c",
+                  "python mnist_ddp_mp.py --nnodes=2 --nproc_per_node=4 --node_rank=${RANK} --dist-url=file:///pvc/share4",
+                ]
+              resources:
+                limits:
+                  nvidia.com/gpu: 4
+              volumeMounts:
+                - name: ddp-pvc
+                  mountPath: "/pvc"
+          hostIPC: true
+          hostNetwork: true
+          dnsPolicy: "ClusterFirstWithHostNet"
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: kubernetes.io/hostname
+                        operator: In
+                        values:
+                          # - gpu-10-252-192-47
+                          - gpu-10-252-192-43
+                          - gpu-10-252-192-49
+
+    Worker:
+      replicas: 1
+      restartPolicy: Never
+      template:
+        metadata:
+          annotations:
+            sidecar.istio.io/inject: "false"
+        spec:
+          volumes:
+            - name: ddp-pvc
+              persistentVolumeClaim:
+                claimName: ddp-pvc
+          containers:
+            - name: pytorch
+              image: shuaix/pytorch-dist-mnist:1.0
+              imagePullPolicy: IfNotPresent
+              command:
+              command:
+                [
+                  "sh",
+                  "-c",
+                  "python mnist_ddp_mp.py --nnodes=2 --nproc_per_node=4 --node_rank=${RANK} --dist-url=file:///pvc/share4",
+                ]
+              resources:
+                limits:
+                  nvidia.com/gpu: 4
+              volumeMounts:
+                - name: ddp-pvc
+                  mountPath: "/pvc"
+          hostIPC: true
+          hostNetwork: true
+          dnsPolicy: "ClusterFirstWithHostNet"
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: kubernetes.io/hostname
+                        operator: In
+                        values:
+                          # - gpu-10-252-192-47
+                          - gpu-10-252-192-43
+                          - gpu-10-252-192-49

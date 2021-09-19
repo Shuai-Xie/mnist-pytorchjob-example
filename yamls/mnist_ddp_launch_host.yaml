@@ -1,0 +1,76 @@
+apiVersion: "kubeflow.org/v1"
+kind: "PyTorchJob"
+metadata:
+  name: "mnist-ddp"
+  namespace: "default"
+spec:
+  pytorchReplicaSpecs:
+    Master:
+      replicas: 1
+      restartPolicy: Never
+      template:
+        metadata:
+          annotations:
+            sidecar.istio.io/inject: "false"
+        spec:
+          containers:
+            - name: pytorch
+              image: shuaix/pytorch-dist-mnist:1.0
+              imagePullPolicy: IfNotPresent
+              command:
+                [
+                  "sh",
+                  "-c",
+                  "python -m torch.distributed.launch --nnodes=4 --nproc_per_node=2 --node_rank=${RANK} --master_addr=10.252.192.48 --master_port=33333 mnist_ddp_launch.py --epochs=1 --batch-size=256",
+                ]
+              resources:
+                limits:
+                  nvidia.com/gpu: 2
+          hostIPC: true
+          hostNetwork: true
+          dnsPolicy: "ClusterFirstWithHostNet"
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: kubernetes.io/hostname
+                        operator: In
+                        values:
+                          - gpu-10-252-192-48     # limit master must be 48
+                          # - gpu-10-252-192-49
+    Worker:
+      replicas: 3
+      restartPolicy: Never
+      template:
+        metadata:
+          annotations:
+            sidecar.istio.io/inject: "false"
+        spec:
+          containers:
+            - name: pytorch
+              image: shuaix/pytorch-dist-mnist:1.0
+              imagePullPolicy: IfNotPresent
+              command:
+                [
+                  "sh",
+                  "-c",
+                  "python -m torch.distributed.launch --nnodes=4 --nproc_per_node=2 --node_rank=${RANK} --master_addr=10.252.192.48 --master_port=33333 mnist_ddp_launch.py --epochs=1 --batch-size=256",
+                ]
+              resources:
+                limits:
+                  nvidia.com/gpu: 2
+          hostIPC: true
+          hostNetwork: true
+          dnsPolicy: "ClusterFirstWithHostNet"
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: kubernetes.io/hostname
+                        operator: In
+                        values:
+                          - gpu-10-252-192-48
+                          - gpu-10-252-192-49
+
